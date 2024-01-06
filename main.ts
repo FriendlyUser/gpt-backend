@@ -17,7 +17,7 @@ const client = await new Client().connect({
   db: db,
   password: password,
   ssl: {
-    mode: "disabled",
+    rejectUnauthorized: true,
   },
 });
 
