@@ -5,6 +5,20 @@ import { OpenAPIHono, createRoute, z } from 'npm:@hono/zod-openapi@0.9.5';
 import { swaggerUI } from 'npm:@hono/swagger-ui@0.2.1';
 import data from "./data.json" assert { type: "json" };
 
+
+const env = config();
+
+// Set up MySQL client
+const client = await new Client().connect({
+  hostname: env.DB_HOST,
+  username: env.DB_USER,
+  db: env.DB_NAME,
+  password: env.DB_PASSWORD,
+  ssl: {
+    mode: "disabled",
+  },
+});
+
 const app = new OpenAPIHono()
 
 app.openapi(
@@ -31,18 +45,94 @@ app.openapi(
   }
 )
 
-const env = config();
 
-// Set up MySQL client
-const client = await new Client().connect({
-  hostname: env.DB_HOST,
-  username: env.DB_USER,
-  db: env.DB_NAME,
-  password: env.DB_PASSWORD,
-  ssl: {
-    mode: "disabled",
-  },
-});
+app.openapi(
+  createRoute({
+    method: 'get',
+    path: '/test',
+    responses: {
+      200: {
+        description: 'Respond a test',
+        content: {
+          'application/json': {
+            schema: z.object({
+              message: z.string()
+            })
+          }
+        }
+      }
+    }
+  }),
+  (c) => {
+    return c.jsonT({
+      message: 'test'
+    })
+  }
+)
+
+app.openapi(
+  createRoute({
+    method: 'get',
+    path: '/api/groceries',
+    parameters: [
+      {
+        name: 'start_date',
+        in: 'query',
+        required: true,
+        description: 'Start date for fetching groceries',
+        schema: {
+          type: 'string',
+          format: 'date' // or 'date-time' depending on your format
+        }
+      },
+      {
+        name: 'end_date',
+        in: 'query',
+        required: true,
+        description: 'End date for fetching groceries',
+        schema: {
+          type: 'string',
+          format: 'date' // or 'date-time' depending on your format
+        }
+      }
+    ],
+    responses: {
+      200: {
+        description: 'List of groceries within the specified date range',
+        content: {
+          'application/json': {
+            schema: {/* Define your response schema here */}
+          }
+        }
+      },
+      400: {
+        description: 'Invalid request parameters'
+      },
+      500: {
+        description: 'Internal Server Error'
+      }
+    }
+  }),
+  async (c) => {
+    const start_date = c.req.query("start_date");
+    const end_date = c.req.query("end_date");
+
+    const query = `
+    SELECT * FROM grocery
+    WHERE start_date >= ? AND end_date <= ?;
+  `;
+
+    try {
+      const result = await client.execute(query, [start_date, end_date]);
+      return c.json(result);
+    } catch (error) {
+      console.error(error);
+      return c.text("An error occurred.", 500);
+    }
+    // Your existing logic to fetch and return groceries
+  }
+);
+
 
 app.get("/", (c) => c.text("Welcome to dinosaur API!"));
 
@@ -58,7 +148,7 @@ app.get("/api/dino/:dinosaur", (c) => {
   }
 });
 
-app.get("/api/groceries", async (c) => {
+app.get("/api/groceriesLegacy", async (c) => {
   const start_date = c.req.query("start_date");
   const end_date = c.req.query("end_date");
 
