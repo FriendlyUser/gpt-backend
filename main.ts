@@ -10,10 +10,10 @@ const env = config();
 
 // Set up MySQL client
 const client = await new Client().connect({
-  hostname: env.DB_HOST,
-  username: env.DB_USER,
-  db: env.DB_NAME,
-  password: env.DB_PASSWORD,
+  hostname: Deno.env.get("DB_HOST"),
+  username: Deno.env.get("DB_USER"),
+  db: Deno.env.get("DB_NAME"),
+  password: Deno.env.get("DB_PASSWORD"),
   ssl: {
     mode: "disabled",
   },
