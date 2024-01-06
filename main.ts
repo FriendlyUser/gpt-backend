@@ -1,19 +1,21 @@
 import { Hono } from "https://deno.land/x/hono@v3.4.1/mod.ts";
-import { config } from 'https://deno.land/x/dotenv/mod.ts';
 import { Client } from "https://deno.land/x/mysql/mod.ts";
 import { OpenAPIHono, createRoute, z } from 'npm:@hono/zod-openapi@0.9.5';
 import { swaggerUI } from 'npm:@hono/swagger-ui@0.2.1';
 import data from "./data.json" assert { type: "json" };
 
 
-const env = config();
-
+var db_host = Deno.env.get("DB_HOST");
+var username = Deno.env.get("DB_USER");
+var db = Deno.env.get("DB_NAME");
+var password = Deno.env.get("DB_PASSWORD");
 // Set up MySQL client
+console.log(db_host, username, db)
 const client = await new Client().connect({
-  hostname: Deno.env.get("DB_HOST"),
-  username: Deno.env.get("DB_USER"),
-  db: Deno.env.get("DB_NAME"),
-  password: Deno.env.get("DB_PASSWORD"),
+  hostname: db_host,
+  username: username,
+  db: db,
+  password: password,
   ssl: {
     mode: "disabled",
   },
