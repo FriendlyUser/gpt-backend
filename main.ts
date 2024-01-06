@@ -1,18 +1,16 @@
 import { Hono } from "https://deno.land/x/hono@v3.4.1/mod.ts";
-import { Client } from "https://deno.land/x/mysql/mod.ts";
+import { connect  } from "npm:@planetscale/database@^1.4";
 import { OpenAPIHono, createRoute, z } from 'npm:@hono/zod-openapi@0.9.5';
 import { swaggerUI } from 'npm:@hono/swagger-ui@0.2.1';
 import data from "./data.json" assert { type: "json" };
-
 
 var db_host = Deno.env.get("DB_HOST");
 var username = Deno.env.get("DB_USER");
 var db = Deno.env.get("DB_NAME");
 var password = Deno.env.get("DB_PASSWORD");
 // Set up MySQL client
-console.log(db_host, username, db)
-const client = await new Client().connect({
-  hostname: db_host,
+const conn = await connect({
+  host: db_host,
   username: username,
   db: db,
   password: password,
@@ -80,7 +78,7 @@ app.openapi(
       {
         name: 'start_date',
         in: 'query',
-        required: true,
+        required: false,
         description: 'Start date for fetching groceries',
         schema: {
           type: 'string',
@@ -90,7 +88,7 @@ app.openapi(
       {
         name: 'end_date',
         in: 'query',
-        required: true,
+        required: false,
         description: 'End date for fetching groceries',
         schema: {
           type: 'string',
@@ -100,10 +98,37 @@ app.openapi(
     ],
     responses: {
       200: {
-        description: 'List of groceries within the specified date range',
+        description: 'List of groceries',
         content: {
           'application/json': {
-            schema: {/* Define your response schema here */}
+            schema: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  label: { type: 'string' },
+                  flyer_path: { type: 'string' },
+                  product_name: { type: 'string' },
+                  data_product_id: { type: 'string' },
+                  savings: { type: 'string' },
+                  current_price: { type: 'string' },
+                  start_date: { type: 'string', format: 'date-time' },
+                  end_date: { type: 'string', format: 'date-time' },
+                  description: { type: 'string' },
+                  size: { type: 'string' },
+                  quantity: { type: 'string' },
+                  product_type: { type: 'string' },
+                  frozen: { type: 'integer' },
+                  see_more_link: { type: 'string' }
+                },
+                required: [
+                  'label', 'flyer_path', 'product_name', 'data_product_id', 
+                  'current_price', 'start_date', 'end_date', 'description', 
+                  'size', 'quantity', 'frozen', 'see_more_link'
+                  // Include 'savings' and 'product_type' if they are required fields
+                ]
+              }
+            }
           }
         }
       },
@@ -118,15 +143,31 @@ app.openapi(
   async (c) => {
     const start_date = c.req.query("start_date");
     const end_date = c.req.query("end_date");
-
-    const query = `
-    SELECT * FROM grocery
-    WHERE start_date >= ? AND end_date <= ?;
-  `;
+    var query = ``;
+    var result;
+    if (start_date && end_date) {
+      query = `
+        SELECT * FROM grocery
+        WHERE start_date >= ? AND end_date <= ?;
+      `;
+      result = await conn.execute(query, [start_date, end_date]);
+    } else if (start_date && !end_date) {
+      query = `
+        SELECT * FROM grocery
+        WHERE start_date >= ?;
+      `;
+      result = await conn.execute(query, [start_date]);
+    } else if (end_date && !start_date) {
+      query = `
+      SELECT * FROM grocery
+      WHERE end_date <= ?;
+    `;
+      result = await conn.execute(query, [end_date]);
+    }
 
     try {
-      const result = await client.execute(query, [start_date, end_date]);
-      return c.json(result);
+      var rows = result["rows"];
+      return c.json(rows);
     } catch (error) {
       console.error(error);
       return c.text("An error occurred.", 500);
