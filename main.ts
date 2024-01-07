@@ -161,8 +161,13 @@ app.openapi(
       query = `
       SELECT * FROM grocery
       WHERE end_date <= ?;
-    `;
+      `;
       result = await conn.execute(query, [end_date]);
+    } else if(!end_date && !start_date) {
+      query = `
+        SELECT * FROM grocery;
+      `;
+      result = await conn.execute(query);
     }
 
     try {
